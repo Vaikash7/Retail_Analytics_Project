@@ -1,56 +1,62 @@
-Onboarding Guide: Adding a New Data Source
-To add a new data source to the Enterprise Retail Analytics Platform, follow this four-step standardized workflow. All configuration notebooks are located in the Metadata folder within your Databricks workspace.
+# 🚀 Onboarding Guide: Adding a New Data Source
 
-Step 1: Register the New Source
-Navigate to the Metadata folder in your workspace.
+Welcome to the **Enterprise Retail Analytics Platform**! This guide outlines the standardized 4-step workflow to onboard new data sources. Our framework is **metadata-driven**, meaning you can add new sources without changing the underlying pipeline code.
 
-Open the notebook: 01 Create Metadata Tables.
 
-Locate the source_config section and insert a new record for your data source.
 
-Provide the following details:
+---
 
-Source Name: A unique identifier for the system.
+## 🛠 Prerequisites
+Ensure you have access to the **Metadata** folder within your Databricks workspace. All configuration notebooks are located there.
 
-Source Path: The specific location in ADLS Gen2 where the new data file will land.
+---
 
-Target Sink: The destination path where the data should reside in the Silver/Gold layers.
+## 📋 The 4-Step Workflow
 
-Ingestion Frequency: Define the load schedule (e.g., daily batch, weekly refresh, or incremental load).
+### Step 1: Register the Source
+Open `01 Create Metadata Tables` and insert a new record into the `source_config` table.
+* **Source Name**: Unique system identifier.
+* **Source Path**: Location in ADLS Gen2.
+* **Target Sink**: Destination path in the Silver/Gold layers.
+* **Ingestion Frequency**: Define the load schedule (e.g., daily/weekly/incremental).
 
-Step 2: Define the Schema
-Within the same metadata configuration, locate the Schema Registry section.
+### Step 2: Define the Schema
+In the `Schema Registry` section of the same notebook, define the structure:
+* Add an entry for every column in your source file.
+* Map incoming names to the target **Silver layer data types** (e.g., `String`, `Int`, `Decimal`).
+* *Pro-tip: If your file has non-standard patterns, define custom parsing logic here.*
 
-Add a new entry for every column present in your new source file.
+### Step 3: Set Quality Rules
+Access the `Quality Rules` table to ensure data integrity before it reaches the Gold layer.
+* **Non-null constraints**: Ensure critical IDs are not empty.
+* **Range checks**: Set bounds for values like `Quantity` or `UnitPrice`.
+* **Format validation**: Ensure date fields match the expected format (e.g., `YYYY-MM-DD`).
 
-Map each incoming column name to its target Silver layer data type (e.g., String, Int, Decimal).
+> 💡 **Why this matters:** Records that fail these rules are automatically flagged as `_IsRejected` and quarantined, ensuring your Gold layer remains a "Source of Truth."
 
-If the file follows a non-standard structure or pattern, update the schema mapping to ensure the ingestion engine parses the file correctly.
+### Step 4: Execute the Load
+Open `02 Load Metadata` and run the notebook. It serves as the **Ingestion Engine** and performs the following automatically:
+1. **Configuration Sync**: Detects your new source.
+2. **Schema Enforcement**: Applies your defined data types.
+3. **Quality Gate**: Activates your validation rules.
+4. **End-to-End Processing**: Starts the flow through the Bronze $\rightarrow$ Silver $\rightarrow$ Gold layers.
 
-Step 3: Set Quality Rules
-Access the Quality Rules table within the metadata configuration.
+---
 
-Add specific validation rules for your new source to ensure data integrity before it reaches the Gold layer.
+## 📊 Summary of System Audit
+Once processed, your data will automatically include these audit columns for full traceability:
 
-Common rules to apply include:
+| Audit Column | Purpose |
+| :--- | :--- |
+| `_AdfPipelineRunId` | Maps lineage to the ADF instance. |
+| `_IngestionTimestamp` | Tracks entry time into the Data Lake. |
+| `_ProcessedTimestamp` | Tracks Databricks transformation time. |
+| `_IsRejected` | Flag for invalid/corrupt records. |
 
-Non-null constraints: Ensure critical fields (like IDs) are never empty.
+---
 
-Range checks: Set minimum or maximum bounds for values like Quantity or UnitPrice.
-
-Format validation: Specify if a field requires a strict date pattern (e.g., YYYY-MM-DD).
-
-Step 4: Execute the Load
-Open the notebook: 02 Load Metadata.
-
-This notebook serves as your Ingestion Engine.
-
-Run the notebook. It will perform the following actions automatically:
-
-Configuration Sync: Detects the new source details you registered in Step 1.
-
-Schema Enforcement: Applies the data types defined in Step 2.
-
-Quality Gate: Activates the validation rules defined in Step 3.
-
-End-to-End Processing: Automatically begins ingesting, cleaning, and transforming the data through your Bronze, Silver, and Gold layers.
+## 🆘 Troubleshooting
+If the load fails, please check the following:
+* Verify your `source_path` is correctly formatted in `source_config`.
+* Ensure all required columns from your source file are registered in the `schema_registry`.
+* Consult the `audit.pipeline_log` table for specific error messages regarding the failed execution.
